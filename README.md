@@ -15,7 +15,7 @@ The API integrates with the Packaging Database Schema from the database design a
 * Authentication
   * JWT (JSON Web Token)
 * Logging
-  * Structured logging (Serilog / Microsoft.Extensions.Logging)
+  * Serilog
 * API Documentation
   * Swagger / OpenAPI
 
