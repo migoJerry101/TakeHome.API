@@ -1,0 +1,34 @@
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+namespace TakeHome.API.Extensions
+{
+    public static class JwtServiceExtensions
+    {
+        public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
+        {
+            var jwtKey = configuration["Jwt:Key"];
+            var jwtIssuer = configuration["Jwt:Issuer"];
+            var jwtAudience = configuration["Jwt:Audience"];
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwtIssuer,
+                        ValidAudience = jwtAudience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                        ClockSkew = TimeSpan.Zero // Forces strict expiration
+                    };
+                });
+
+            return services;
+        }
+    }
+}
