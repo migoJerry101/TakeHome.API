@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -22,12 +23,21 @@ namespace TakeHome.API.Services
         public async Task<string> LoginAsync(string username, string password)
         {
             var user = await _appDbContext.Users.FirstOrDefaultAsync(u => u.UserName == username);
-            if (user == null) throw new Exception("Invalid username or password");
+            if (user == null)
+            {
+                Log.Warning("Authentication failed for user: {Email}", username);
+                throw new UnauthorizedAccessException();
+            }
+            ;
 
             var hash = HashPassword(password, user.Salt);
-            if (hash != user.PasswordHash) throw new Exception("Invalid username or password");
+            if (hash != user.PasswordHash)
+            {
+                Log.Warning("Invalid password", username);
+                throw new Exception("Invalid username or password");
+            } 
 
-            return await GenerateJwtTokenAsync(user);
+            return GenerateJwtTokenAsync(user);
         }
 
         public async Task<User> RegisterAsync(string username, string password)
@@ -53,7 +63,7 @@ namespace TakeHome.API.Services
             return user;
         }
 
-        private async Task<string> GenerateJwtTokenAsync(User user)
+        private string GenerateJwtTokenAsync(User user)
         {
             var claims = new[]
             {   
