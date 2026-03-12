@@ -17,15 +17,14 @@ namespace TakeHome.API.Services.v2
         public async Task<List<ProductResponseDto>> GetAllAsync()
         {
             var products = await _appDbContext.Products
-                    .Include(p => p.Packagings)
-                        .ThenInclude(pg => pg.PackagingType)
-                    .Include(p => p.Packagings)
-                        .ThenInclude(pg => pg.PackagingItems)
-                            .ThenInclude(pi => pi.Item)
-                    .ToListAsync();
+                .Include(p => p.Packagings)
+                    .ThenInclude(pg => pg.PackagingType)
+                .Include(p => p.Packagings)
+                    .ThenInclude(pg => pg.PackagingItems)
+                        .ThenInclude(pi => pi.Item)
+                .ToListAsync();
 
             var results = new List<ProductResponseDto>();
-
 
             foreach (var product in products)
             {
@@ -36,13 +35,22 @@ namespace TakeHome.API.Services.v2
                     PackagingLevels = new List<PackagingLevelDto>()
                 };
 
-                var rootPackagings = product.Packagings
+                var allPackagings = product.Packagings.ToList();
+
+                var dictionary = allPackagings
+                    .Where(p => p.ParentPackagingId != null)
+                    .GroupBy(p => p.ParentPackagingId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                var rootPackagings = allPackagings
                     .Where(pg => pg.ParentPackagingId == null)
                     .ToList();
 
                 foreach (var root in rootPackagings)
                 {
-                    MapPackagingRecursive(root, product.Packagings.ToList(), productDto.PackagingLevels, 1, "");
+                    productDto.PackagingLevels.Add(
+                        MapPackagingRecursive(root, dictionary, 1, "")
+                    );
                 }
 
                 results.Add(productDto);
@@ -51,28 +59,41 @@ namespace TakeHome.API.Services.v2
             return results;
         }
 
-        private void MapPackagingRecursive(Packaging current, List<Packaging> all, List<PackagingLevelDto> results, int level, string parentPath)
+        private PackagingLevelDto MapPackagingRecursive(Packaging current,Dictionary<int?, List<Packaging>> dictionary,int level, string parentPath)
         {
             var typeName = current.PackagingType?.TypeName ?? "Unknown";
-            var currentPath = string.IsNullOrEmpty(parentPath) ? typeName : $"{parentPath} -> {typeName}";
+            var currentPath = string.IsNullOrEmpty(parentPath)
+                ? typeName
+                : $"{parentPath} -> {typeName}";
 
-            results.Add(new PackagingLevelDto
+            var dto = new PackagingLevelDto
             {
                 PackageLevel = level,
                 PackagingPath = currentPath,
                 TypeName = typeName,
-                Items = current.PackagingItems.Select(pi => new PackagingItemDto
-                {
-                    ItemName = pi.Item?.ItemName ?? "Unknown",
-                    Quantity = pi.Quantity
-                }).ToList()
-            });
+                Item = new PackagingItemDto(),
+                Packaging = new List<PackagingLevelDto>()
+            };
 
-            var children = all.Where(pg => pg.ParentPackagingId == current.PackagingId);
-            foreach (var child in children)
+            var packagingItem = current.PackagingItems.FirstOrDefault();
+
+            if (packagingItem?.Item != null)
             {
-                MapPackagingRecursive(child, all, results, level + 1, currentPath);
+                dto.Item.ItemName = packagingItem.Item.ItemName;
+                dto.Item.Quantity = packagingItem.Quantity;
             }
+
+            if (dictionary.TryGetValue(current.PackagingId, out var children))
+            {
+                foreach (var child in children)
+                {
+                    dto.Packaging.Add(
+                        MapPackagingRecursive(child, dictionary, level + 1, currentPath)
+                    );
+                }
+            }
+
+            return dto;
         }
     }
 }

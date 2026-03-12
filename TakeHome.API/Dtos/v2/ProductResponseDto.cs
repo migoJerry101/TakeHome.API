@@ -12,7 +12,9 @@
         public int PackageLevel { get; set; }
         public string PackagingPath { get; set; } = string.Empty;
         public string TypeName { get; set; } = string.Empty;
-        public List<PackagingItemDto> Items { get; set; } = new();
+        public PackagingItemDto Item { get; set; }
+
+        public List<PackagingLevelDto> Packaging { get; set; } = new();
     }
 
     public class PackagingItemDto
